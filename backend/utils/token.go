@@ -10,12 +10,9 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// ✅ Use secret key from environment variable
 var jwtKey = []byte(os.Getenv("JWT_SECRET"))
 
-// ------------------------------------
-// 🔹 CreateToken — generates JWT for a user
-// ------------------------------------
+
 func CreateToken(userID int, email string) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"user_id": userID,
@@ -25,9 +22,9 @@ func CreateToken(userID int, email string) (string, error) {
 	return token.SignedString(jwtKey)
 }
 
-// ------------------------------------
+
 // 🔹 VerifyToken — verifies a token’s validity
-// ------------------------------------
+
 func VerifyToken(tokenString string) (*jwt.Token, error) {
 	return jwt.Parse(tokenString, func(t *jwt.Token) (interface{}, error) {
 		return jwtKey, nil
