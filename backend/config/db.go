@@ -37,8 +37,8 @@ func ConnectDB() {
 
 	fmt.Println("✅ Connected to PostgreSQL Database")
 
-	// Auto migrate your model (it won’t override existing data)
-	db.AutoMigrate(&models.User{})
+// Auto migrate your model (it won’t override existing data)
+db.AutoMigrate(&models.User{})
 
 	DB = db
 }

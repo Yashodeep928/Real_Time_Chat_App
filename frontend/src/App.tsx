@@ -1,15 +1,28 @@
-import React, { useState } from "react";
-import Login from "./components/Login";
-import Chat from "./components/Chat";
+import { ChatProvider } from "./context/ChatContext";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import Signup from "./components/auth/Signup";
+import Login from "./components/auth/Login";
+import ProtectedRoute from "./components/auth/ProtectedRoute";
+import MainLayout from "./components/Layout/Mainlayout";
 
-const App: React.FC = () => {
-  const [loggedIn, setLoggedIn] = useState(!!localStorage.getItem("token"));
-
+function App() {
   return (
-    <div>
-      {loggedIn ? <Chat /> : <Login onLogin={() => setLoggedIn(true)} />}
-    </div>
+    <Router>
+      <ChatProvider>
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/" element={<Signup />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+
+          {/* Protected Routes */}
+          <Route element={<ProtectedRoute />}>
+            <Route path="/chat" element={<MainLayout />} />
+          </Route>
+        </Routes>
+      </ChatProvider>
+    </Router>
   );
-};
+}
 
 export default App;

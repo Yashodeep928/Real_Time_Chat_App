@@ -1,77 +1,93 @@
 package controllers
 
 import (
-	"encoding/json"
-	"net/http"
-
-	"chatapp/config"
-	"chatapp/models"
-	"chatapp/utils"
+    "encoding/json"
+    "net/http"
+    "chatapp/config"
+    "chatapp/models"
+    "chatapp/utils"
 )
 
-// Signup handles user registration
 func Signup(w http.ResponseWriter, r *http.Request) {
-	var user models.User
-	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
-		http.Error(w, "Invalid input", http.StatusBadRequest)
-		return
-	}
+    var user models.User
 
-	// Validate fields
-	if user.Username == "" || user.Email == "" || user.Password == "" {
-		http.Error(w, "All fields are required", http.StatusBadRequest)
-		return
-	}
+    // 1. Decode JSON body from frontend
+    if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
+        http.Error(w, "Invalid input", http.StatusBadRequest)
+        return
+    }
 
-	// Hash password
-	hashedPassword, err := utils.HashPassword(user.Password)
-	if err != nil {
-		http.Error(w, "Error hashing password", http.StatusInternalServerError)
-		return
-	}
-	user.Password = hashedPassword
+    // 2. Validate required fields
+    if user.Username == "" || user.Email == "" || user.Password == "" {
+        http.Error(w, "All fields are required", http.StatusBadRequest)
+        return
+    }
 
-	// Save user
-	if err := config.DB.Create(&user).Error; err != nil {
-		http.Error(w, "User already exists or DB error", http.StatusConflict)
-		return
-	}
+    // 3. Hash password
+    hashedPassword, err := utils.HashPassword(user.Password)
+    if err != nil {
+        http.Error(w, "Error hashing password", http.StatusInternalServerError)
+        return
+    }
+    user.Password = hashedPassword
 
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]string{"message": "User registered successfully"})
+    // 4. Save user to database
+    if err := config.DB.Create(&user).Error; err != nil {
+        http.Error(w, "User already exists or DB error", http.StatusConflict)
+        return
+    }
+
+    // 5. Generate JWT token
+    token, err := utils.CreateToken(int(user.ID), user.Email)
+    if err != nil {
+        http.Error(w, "Error creating token", http.StatusInternalServerError)
+        return
+    }
+
+    // 6. Return response with token
+    json.NewEncoder(w).Encode(map[string]interface{}{
+        "message": "User registered successfully",
+        "token":   token,
+        "user_id": user.ID,
+    })
 }
 
-// Login handles user login
 func Login(w http.ResponseWriter, r *http.Request) {
-	var input struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
-	}
-	var dbUser models.User
+    var input struct {
+        Username    string `json:"username"`
+        Password string `json:"password"`
+    }
 
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		http.Error(w, "Invalid input", http.StatusBadRequest)
-		return
-	}
+    var dbUser models.User
 
-	// Find user by email
-	if err := config.DB.Where("email = ?", input.Email).First(&dbUser).Error; err != nil {
-		http.Error(w, "User not found", http.StatusUnauthorized)
-		return
-	}
+    // 1. Decode JSON body
+    if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+        http.Error(w, "Invalid input", http.StatusBadRequest)
+        return
+    }
 
-	// Compare password
-	if !utils.CheckPasswordHash(input.Password, dbUser.Password) {
-		http.Error(w, "Invalid password", http.StatusUnauthorized)
-		return
-	}
+    // 2. Find user by username
+    if err := config.DB.Where("username = ?", input.Username).First(&dbUser).Error; err != nil {
+        http.Error(w, "User not found", http.StatusUnauthorized)
+        return
+    }
 
-	// Generate JWT
-	token, err := utils.GenerateToken(dbUser.Email)
-	if err != nil {
-		http.Error(w, "Error generating token", http.StatusInternalServerError)
-		return
-	}
+    // 3. Compare password
+    if !utils.CheckPasswordHash(input.Password, dbUser.Password) {
+        http.Error(w, "Invalid password", http.StatusUnauthorized)
+        return
+    }
 
-	json.NewEncoder(w).Encode(map[string]string{"token": token})
+    // 4. Generate JWT token
+    token, err := utils.CreateToken(int(dbUser.ID), dbUser.Username)
+    if err != nil {
+        http.Error(w, "Error creating token", http.StatusInternalServerError)
+        return
+    }
+
+    // 5. Return token + user ID
+    json.NewEncoder(w).Encode(map[string]interface{}{
+        "token":   token,
+        "user_id": dbUser.ID,
+    })
 }
